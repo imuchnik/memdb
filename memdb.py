@@ -1,166 +1,181 @@
-import os
-import posixpath
-import sys
-
-import click
+""" Simple in-memory database as a response to the Thumbtack coding challenge. """
 
 
-class Repo:
-    def __init__(self, home):
-        self.home = home
-        self.config = {}
-        self.verbose = False
+class InMemDb(object):
 
-    def set_config(self, key, value):
-        self.config[key] = value
-        if self.verbose:
-            click.echo(f"  config[{key}] = {value}", file=sys.stderr)
+    """ Functions:
+        SET [name] [value] - Sets the name in the database to the given value
+        GET [name] - Prints the value for the given name. If the value is not in the database, prints N​ ULL
+        DELETE [name] - Deletes the value from the database
+        COUNT [value] -Returns the number of names that have the given value assigned to them. If that value is not assigned anywhere, prints ​0
+        END - Exits the database
+        The database must also support transactions:
+        BEGIN - Begins a new transaction
+        ROLLBACK - Rolls back the most recent transaction. If there is no transaction to rollback, prints T​ RANSACTION NOT FOUND
+        COMMIT -Commits a​ll​ of the open transactions
 
-    def __repr__(self):
-        return f"<Repo {self.home}>"
+        Begins a new transaction
 
+"""
 
-pass_repo = click.make_pass_decorator(Repo)
+    def __init__(self):
+        """ Initialize db instance. """
+        self.__db = {}
+        self.__values_counts = {}
+        self.__transaction_values= []  # Stores previous values to allow rollback
+        self.transactions = []
+        self.__rollbackstate = False
 
+    def get_transaction_state(self):
+        return len(self.transactions) > 0
 
-@click.group()
-@click.option(
-    "--repo-home",
-    envvar="REPO_HOME",
-    default=".repo",
-    metavar="PATH",
-    help="Changes the repository folder location.",
-)
-@click.option(
-    "--config",
-    nargs=2,
-    multiple=True,
-    metavar="KEY VALUE",
-    help="Overrides a config key/value pair.",
-)
-@click.option("--verbose", "-v", is_flag=True, help="Enables verbose mode.")
-@click.version_option("1.0")
-@click.pass_context
-def cli(ctx, repo_home, config, verbose):
-    """Repo is a command line tool that showcases how to build complex
-    command line interfaces with Click.
+    def set(self, key, value):
+        """ Sets value of name to value. Inserts name into database if it doesn't already exist. """
+        current_value = self.__db[key] if key in self.__db else None
+        # caught and edge case on tests, if we are replaying commands in rollback, do not save the prev value
+        if self.get_transaction_state() and not self.__rollbackstate:
+            print(self.__rollbackstate)
+            if current_value is not None:
+                self.transactions[-1].insert(0,['set', key, current_value])
+            else:
+                self.transactions[-1].insert(0,['delete', key])
 
-    This tool is supposed to look like a distributed version control
-    system to show how something like this can be structured.
-    """
-    # Create a repo object and remember it as as the context object.  From
-    # this point onwards other commands can refer to it by using the
-    # @pass_repo decorator.
-    ctx.obj = Repo(os.path.abspath(repo_home))
-    ctx.obj.verbose = verbose
-    for key, value in config:
-        ctx.obj.set_config(key, value)
-
-
-@cli.command()
-@click.argument("src")
-@click.argument("dest", required=False)
-@click.option(
-    "--shallow/--deep",
-    default=False,
-    help="Makes a checkout shallow or deep.  Deep by default.",
-)
-@click.option(
-    "--rev", "-r", default="HEAD", help="Clone a specific revision instead of HEAD."
-)
-@pass_repo
-def clone(repo, src, dest, shallow, rev):
-    """Clones a repository.
-
-    This will clone the repository at SRC into the folder DEST.  If DEST
-    is not provided this will automatically use the last path component
-    of SRC and create that folder.
-    """
-    if dest is None:
-        dest = posixpath.split(src)[-1] or "."
-    click.echo(f"Cloning repo {src} to {os.path.basename(dest)}")
-    repo.home = dest
-    if shallow:
-        click.echo("Making shallow checkout")
-    click.echo(f"Checking out revision {rev}")
-
-
-@cli.command()
-@click.confirmation_option()
-@pass_repo
-def delete(repo):
-    """Deletes a repository.
-
-    This will throw away the current repository.
-    """
-    click.echo(f"Destroying repo {repo.home}")
-    click.echo("Deleted!")
-
-
-@cli.command()
-@click.option("--username", prompt=True, help="The developer's shown username.")
-@click.option("--email", prompt="E-Mail", help="The developer's email address")
-@click.password_option(help="The login password.")
-@pass_repo
-def setuser(repo, username, email, password):
-    """Sets the user credentials.
-
-    This will override the current user config.
-    """
-    repo.set_config("username", username)
-    repo.set_config("email", email)
-    repo.set_config("password", "*" * len(password))
-    click.echo("Changed credentials.")
-
-
-@cli.command()
-@click.option(
-    "--message",
-    "-m",
-    multiple=True,
-    help="The commit message.  If provided multiple times each"
-         " argument gets converted into a new line.",
-)
-@click.argument("files", nargs=-1, type=click.Path())
-@pass_repo
-def commit(repo, files, message):
-    """Commits outstanding changes.
-
-    Commit changes to the given files into the repository.  You will need to
-    "repo push" to push up your changes to other repositories.
-
-    If a list of files is omitted, all changes reported by "repo status"
-    will be committed.
-    """
-    if not message:
-        marker = "# Files to be committed:"
-        hint = ["", "", marker, "#"]
-        for file in files:
-            hint.append(f"#   U {file}")
-        message = click.edit("\n".join(hint))
-        if message is None:
-            click.echo("Aborted!")
+        if current_value == value:
             return
-        msg = message.split(marker)[0].rstrip()
-        if not msg:
-            click.echo("Aborted! Empty commit message")
+
+        #keeping track of count to comply with Big(O) preformance requirements
+        if current_value in self.__values_counts:
+
+            self.__values_counts[current_value] -= 1
+
+        if value in self.__values_counts:
+            self.__values_counts[value] += 1
+        else:
+            self.__values_counts[value] = 1
+
+        self.__db[key] = value
+
+    def get(self, key):
+        """ Returns value of key if it exists in the database, otherwise returns 'NULL'. """
+        return self.__db[key] if key in self.__db else 'NULL'
+
+    def get_count(self, value):
+        """ Returns number of entries in the database that have the specified value. """
+        return self.__values_counts[value] if value in self.__values_counts else 0
+
+    def delete(self, key):
+        """ Removes name from database if it's present. """
+        current_value = self.__db.pop(key, None)
+        if current_value is None:
             return
+
+        self.__values_counts[current_value] -= 1
+
+        if self.get_transaction_state() and not self.__rollbackstate:
+            self.transactions[-1].insert(0,['set', key, current_value])
+
+    def begin(self):
+        """ Opens transaction block. """
+        #TODO: this is probably easier to track, but no necessary, refactor
+        transaction_values = []
+        self.transactions.append(transaction_values)
+
+    def rollback(self):
+
+        """
+        Rolls back the most recent transaction.
+        If there is no transaction to rollback, prints T​RANSACTION NOT FOUND
+        """
+        self.__rollbackstate = True
+        if not self.get_transaction_state():
+            return  "T​RANSACTION NOT FOUND"
+
+        #replay the commands
+        currentTansactionActions = self.transactions.pop()
+        print("rolling back recent transaction:", currentTansactionActions)
+
+        for cmd in currentTansactionActions:
+            print(cmd)
+            if len(cmd)>2:
+                self.set(cmd[1], cmd[2])
+
+            else:
+                self.delete(cmd[1])
+
+        currentTansactionActions = []
+        self.__rollbackstate = False
+        return True
+
+    def commit(self):
+        """
+        Commits all transactions to database. Returns True on success,
+        returns False if there aren't any open transactions.
+        """
+        if not self.__transaction_values:
+            return False
+        self.__transaction_values = []q
+        return True
+
+
+    def __update_current_transaction(self, name, value):
+        """
+        Stores current value of name if not already stored to most recent transaction
+        (if any transactions open) to enable restoration of previous state on rollback.
+        """
+        if self.__transactions and name not in self.__transactions[-1]:
+            self.__transactions[-1][name] = value
+
+
+def display(value, default=None):
+    """
+    Prints value to stdout. If value is None and a default value is
+    specified (and not None), then the default value is printed instead. Otherwise
+    the None value is printed.
+    """
+    if value is None and default is not None:
+        value = default
+    print(value)
+
+
+COMMANDS = {
+    'SET':        (3, lambda db, key, value: db.set(key, value)),
+    'GET':        (2, lambda db, key:  display(db.get(key), "NULL")),
+    'DELETE':     (2, lambda db, key:  db.delete(key)),
+    'COUNT':      (2, lambda db, value: display(db.get_count(value))),
+    'END':        (1, lambda db:        False),
+    'BEGIN':      (1, lambda db:        db.begin()),
+    'ROLLBACK':   (1, lambda db:        db.rollback() or display("NO TRANSACTION")),
+    'COMMIT':     (1, lambda db:        db.commit() or display("NO TRANSACTION")),
+
+
+}
+
+
+def process_command(simpleDb, command):
+    """
+    Parses string commands and applies them to the database.
+    Returning False indicates that no more commands should be passed in.
+    """
+    command = command.split()
+    opcode = command.pop(0).upper() if len(command) > 0 else None
+    if opcode is None or opcode not in COMMANDS or len(command) != (COMMANDS[opcode][0] - 1):
+        print("INVALID COMMAND")
+    elif 'END' == opcode:
+        return False
     else:
-        msg = "\n".join(message)
-    click.echo(f"Files to be committed: {files}")
-    click.echo(f"Commit message:\n{msg}")
+        COMMANDS[opcode][1](simpleDb, *command)
+    return True
 
 
-@cli.command(short_help="Copies files.")
-@click.option(
-    "--force", is_flag=True, help="forcibly copy over an existing managed file"
-)
-@click.argument("src", nargs=-1, type=click.Path())
-@click.argument("dst", type=click.Path())
-@pass_repo
-def copy(repo, src, dst, force):
-    """Copies one or multiple files to a new location.  This copies all
-    files from SRC to DST.
-    """
-    for fn in src:
-        click.echo(f"Copy from {fn} -> {dst}")
+def run():
+    """ Reads database command from the command line and passes it through for processing. """
+    simpleDb = InMemDb()
+    print("Initialized successfully")
+    print("Supported commends are: SET, GET, COUNT, BEGIN, COMMIT, ROLLBACK and END")
+    while process_command(simpleDb, input()):
+        pass
+    print("Exiting")
+
+if __name__ == '__main__':
+    run()
+
