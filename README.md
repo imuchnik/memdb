@@ -2,7 +2,7 @@
  ## Available Functions:
 - SET [name] [value] : -- Sets the name in the database to the given value
 - GET [name] :
-Prints the value for the given name. If the value is not in the database, prints N​ ULL
+Prints the value for the given name. If the value is not in the database, prints NULL
 - DELETE [name] : 
 Deletes the value from the database
 - COUNT [value] :
@@ -13,7 +13,7 @@ Returns the number of names that have the given value assigned to them. If that 
 - BEGIN: Begins a new transaction
 - ROLLBACK :
 Rolls back the most recent transaction. If there is no transaction to rollback, prints "T​RANSACTION NOT FOUND"
-- COMMIT : Commits a​ ll​ of the open transactions
+- COMMIT : Commits all of the open transactions
 
 ## Requirements
 - virtualenv
