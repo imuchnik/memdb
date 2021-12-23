@@ -9,7 +9,7 @@ Deletes the value from the database
 Returns the number of names that have the given value assigned to them. If that value is not assigned anywhere, prints ​0
 - END:  Exits the database
 
-###The database must also support transactions:
+### The database must also support transactions:
 - BEGIN: Begins a new transaction
 - ROLLBACK :
 Rolls back the most recent transaction. If there is no transaction to rollback, prints "T​RANSACTION NOT FOUND"
