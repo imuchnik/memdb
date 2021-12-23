@@ -168,10 +168,42 @@ class Test_memdb:
 
         assert not db.get_transaction_state()
 
-
-
-
-
-    def test_transactionCommit(self, db):
+    def test_transactionEmptyCommit(self, db):
         db.commit()
         assert not db.get_transaction_state()
+
+    def test_transactionCommit(self, db):
+        db.set("a",2)
+        db.begin()
+        db.set("a",4)
+        db.set("b",4)
+        db.set("c",4)
+        db.set("d",4)
+        db.delete("a")
+        db.commit()
+        assert db.get("c") == 4
+        assert db.get("d") == 4
+        assert db.get("b") == 4
+        assert db.get("a") == 'NULL'
+        assert db.transactions ==[]
+        assert not db.get_transaction_state()
+
+    def test_transactionRolbackCommit(self, db):
+        db.set("a",2)
+        db.begin()
+        db.set("a",4)
+        db.set("b",4)
+        db.begin()
+        db.set("c",4)
+        db.set("d",4)
+        db.delete("a")
+        db.rollback()
+        db.commit()
+        assert db.get("c") == "NULL"
+        assert db.get("d") == "NULL"
+        assert db.get("b") == 4
+        assert db.get("a") == 4
+        assert db.transactions ==[]
+        assert not db.get_transaction_state()
+
+

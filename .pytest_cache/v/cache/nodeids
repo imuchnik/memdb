@@ -9,5 +9,7 @@
   "test/test_memdb.py::Test_memdb::()::test_transactionRollbackNoTransaction",
   "test/test_memdb.py::Test_memdb::()::test_transactionRollbackReplayTransaction",
   "test/test_memdb.py::Test_memdb::()::test_transactionRollbackReplayTransactions",
-  "test/test_memdb.py::Test_memdb::()::test_transactionCommit"
+  "test/test_memdb.py::Test_memdb::()::test_transactionEmptyCommit",
+  "test/test_memdb.py::Test_memdb::()::test_transactionCommit",
+  "test/test_memdb.py::Test_memdb::()::test_transactionRolbackCommit"
 ]

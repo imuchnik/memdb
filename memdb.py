@@ -1,28 +1,23 @@
-""" Simple in-memory database as a response to the Thumbtack coding challenge. """
-
-
 class InMemDb(object):
-
     """ Functions:
         SET [name] [value] - Sets the name in the database to the given value
         GET [name] - Prints the value for the given name. If the value is not in the database, prints N​ ULL
         DELETE [name] - Deletes the value from the database
-        COUNT [value] -Returns the number of names that have the given value assigned to them. If that value is not assigned anywhere, prints ​0
+        COUNT [value] -Returns the number of names that have the given value assigned to them. If that value is not
+              assigned anywhere, prints ​0
         END - Exits the database
         The database must also support transactions:
         BEGIN - Begins a new transaction
-        ROLLBACK - Rolls back the most recent transaction. If there is no transaction to rollback, prints T​ RANSACTION NOT FOUND
+        ROLLBACK - Rolls back the most recent transaction. If there is no transaction to rollback,
+            prints T​RANSACTION NOT FOUND
         COMMIT -Commits a​ll​ of the open transactions
-
-        Begins a new transaction
-
 """
 
     def __init__(self):
         """ Initialize db instance. """
         self.__db = {}
         self.__values_counts = {}
-        self.__transaction_values= []  # Stores previous values to allow rollback
+        self.__transaction_values = []  # Stores previous values to allow rollback
         self.transactions = []
         self.__rollbackstate = False
 
@@ -32,20 +27,19 @@ class InMemDb(object):
     def set(self, key, value):
         """ Sets value of name to value. Inserts name into database if it doesn't already exist. """
         current_value = self.__db[key] if key in self.__db else None
+
         # caught and edge case on tests, if we are replaying commands in rollback, do not save the prev value
         if self.get_transaction_state() and not self.__rollbackstate:
-            print(self.__rollbackstate)
             if current_value is not None:
-                self.transactions[-1].insert(0,['set', key, current_value])
+                self.transactions[-1].insert(0, ['set', key, current_value])
             else:
-                self.transactions[-1].insert(0,['delete', key])
+                self.transactions[-1].insert(0, ['delete', key])
 
         if current_value == value:
             return
 
-        #keeping track of count to comply with Big(O) preformance requirements
+        # keeping track of count to comply with Big(O) preformance requirements
         if current_value in self.__values_counts:
-
             self.__values_counts[current_value] -= 1
 
         if value in self.__values_counts:
@@ -72,11 +66,11 @@ class InMemDb(object):
         self.__values_counts[current_value] -= 1
 
         if self.get_transaction_state() and not self.__rollbackstate:
-            self.transactions[-1].insert(0,['set', key, current_value])
+            self.transactions[-1].insert(0, ['set', key, current_value])
 
     def begin(self):
         """ Opens transaction block. """
-        #TODO: this is probably easier to track, but no necessary, refactor
+        # TODO: this is probably easier to track, but no necessary, refactor
         transaction_values = []
         self.transactions.append(transaction_values)
 
@@ -88,15 +82,14 @@ class InMemDb(object):
         """
         self.__rollbackstate = True
         if not self.get_transaction_state():
-            return  "T​RANSACTION NOT FOUND"
+            return "T​RANSACTION NOT FOUND"
 
-        #replay the commands
+        # replay the commands
         currentTansactionActions = self.transactions.pop()
         print("rolling back recent transaction:", currentTansactionActions)
 
         for cmd in currentTansactionActions:
-            print(cmd)
-            if len(cmd)>2:
+            if len(cmd) > 2:
                 self.set(cmd[1], cmd[2])
 
             else:
@@ -109,21 +102,11 @@ class InMemDb(object):
     def commit(self):
         """
         Commits all transactions to database. Returns True on success,
-        returns False if there aren't any open transactions.
         """
-        if not self.__transaction_values:
+        if not self.transactions:
             return False
-        self.__transaction_values = []q
+        self.transactions = []
         return True
-
-
-    def __update_current_transaction(self, name, value):
-        """
-        Stores current value of name if not already stored to most recent transaction
-        (if any transactions open) to enable restoration of previous state on rollback.
-        """
-        if self.__transactions and name not in self.__transactions[-1]:
-            self.__transactions[-1][name] = value
 
 
 def display(value, default=None):
@@ -138,16 +121,14 @@ def display(value, default=None):
 
 
 COMMANDS = {
-    'SET':        (3, lambda db, key, value: db.set(key, value)),
-    'GET':        (2, lambda db, key:  display(db.get(key), "NULL")),
-    'DELETE':     (2, lambda db, key:  db.delete(key)),
-    'COUNT':      (2, lambda db, value: display(db.get_count(value))),
-    'END':        (1, lambda db:        False),
-    'BEGIN':      (1, lambda db:        db.begin()),
-    'ROLLBACK':   (1, lambda db:        db.rollback() or display("NO TRANSACTION")),
-    'COMMIT':     (1, lambda db:        db.commit() or display("NO TRANSACTION")),
-
-
+    'SET': (3, lambda db, key, value: db.set(key, value)),
+    'GET': (2, lambda db, key: display(db.get(key), "NULL")),
+    'DELETE': (2, lambda db, key: db.delete(key)),
+    'COUNT': (2, lambda db, value: display(db.get_count(value))),
+    'END': (1, lambda db: False),
+    'BEGIN': (1, lambda db: db.begin()),
+    'ROLLBACK': (1, lambda db: db.rollback() or display("NO TRANSACTION")),
+    'COMMIT': (1, lambda db: db.commit())
 }
 
 
@@ -178,4 +159,3 @@ def run():
 
 if __name__ == '__main__':
     run()
-
